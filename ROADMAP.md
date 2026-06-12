@@ -56,7 +56,8 @@ Portfolio framing:
 
 ## 3.1 Initial Product Boundary
 
-The initial product is a self-service tender relevance and discovery tool.
+The initial product is a self-service tender relevance and discovery tool,
+followed by an optional deeper qualification workflow for shortlisted tenders.
 
 It should help a company answer:
 
@@ -65,9 +66,14 @@ It should help a company answer:
 - What publicly available requirements and deadlines should we review?
 - What information is missing and must be checked in Etimad?
 
-The initial product should not claim that a company is fully eligible to bid.
-Complete eligibility requirements may only be available after logging into
-Etimad and purchasing the tender conditions booklet.
+Public-data matching and summaries should not claim that a company is fully
+eligible to bid. Complete eligibility, scope, staffing, evaluation, and
+contractual requirements may only be available in the tender conditions
+booklet.
+
+When a booklet is freely available to the user through their authenticated
+Etimad access, they may manually upload it for deeper analysis. Booklet analysis
+improves decision support but still must not guarantee eligibility or success.
 
 Private or sensitive company documents are not required for initial relevance
 matching. Start with a plain-language company profile, services, activities,
@@ -194,6 +200,8 @@ A user can:
 
 - generate AI summaries for tenders
 - see risks, requirements, deadline notes, and next actions
+- upload a shortlisted tender's conditions booklet for deeper analysis
+- see booklet-derived requirements with page citations
 - ask basic questions over retrieved tender records
 
 ## MVP 4: Weekly Tender Report
@@ -526,21 +534,30 @@ Each tender should show:
 
 The app can rank tender relevance against a company profile without AI.
 
+Status: Complete on 2026-06-12.
+
 ---
 
 ## Milestone 7 — First AI Feature: Tender Summary
 
 ### Goal
 
-Add AI in the smallest useful way.
+Add AI in the smallest useful, grounded, and measurable way.
 
 ### Build
 
-A button:
+Add a manual button on a tender detail page:
 
 > Summarize Tender
 
-AI output should include:
+During local development, summaries must only be generated when this button is
+clicked. Importing or enriching tenders must not automatically call the AI API.
+
+Use the OpenAI API to generate an English summary from the tender data already
+stored in the application. Prefer enriched tenders, but allow summaries for
+unenriched tenders when the output clearly identifies missing information.
+
+The structured output must include:
 
 - summary
 - requirements
@@ -549,12 +566,74 @@ AI output should include:
 - fit notes
 - questions to ask before applying
 - next actions
+- missing information
 
-### AI Rule
+Fit notes should only be generated when a company profile exists. They describe
+relevance between the company and tender; they must not claim the company is
+eligible, likely to win, or guaranteed to be a good bidder.
 
-The prompt must say:
+### Grounding Rules
 
-> Use only the tender data provided. If information is missing, say it is missing.
+The AI must:
+
+- use only the tender and company-profile data provided by the application
+- state clearly when information is missing or unavailable
+- never invent requirements, deadlines, values, or eligibility criteria
+- distinguish confirmed facts from possible concerns
+- never claim that a company is eligible or likely to win
+- return output that passes structured JSON validation
+
+### Summary History and Staleness
+
+- Show the latest successful summary by default.
+- Preserve previous summary versions for debugging and comparison.
+- Store the generation date, model, prompt version, tender update time, and
+  company-profile update time with each summary.
+- Mark a summary as stale when its tender or company profile changed after the
+  summary was generated.
+
+### Cost Controls
+
+- OpenAI API billing is separate from ChatGPT or Codex subscriptions.
+- Start with a suggested monthly testing budget of USD 10 and a hard limit of
+  USD 20.
+- Log API usage and estimated cost for each generation.
+- Keep generation manual during development to prevent accidental bulk usage.
+
+### Initial AI Evaluation
+
+Create a small evaluation set of approximately 10 representative tenders,
+including:
+
+- enriched and unenriched tenders
+- tenders with missing deadlines
+- clearly irrelevant tenders
+- tenders with confusing or incomplete fields
+- Arabic source data requiring an English summary
+
+Evaluate each output for:
+
+- groundedness in the supplied data
+- honesty about missing information
+- requirement and deadline accuracy
+- absence of eligibility or winning-probability overclaims
+- valid structured output
+- practical usefulness
+
+Begin with deterministic checks and a manual review checklist. Model-based
+grading may be added later, but human review remains the standard for factual
+accuracy.
+
+### Suggested Build Sequence
+
+1. Add summary storage and version history.
+2. Define and validate the structured output schema.
+3. Build the grounded tender and company-profile data serializer and prompt.
+4. Add the manual Summarize Tender action.
+5. Store and display the latest successful summary.
+6. Detect and display stale summaries.
+7. Add the initial evaluation fixtures and checklist.
+8. Add API usage and estimated-cost logging.
 
 ### Learn only what is needed
 
@@ -562,11 +641,17 @@ The prompt must say:
 - structured JSON output
 - prompt design
 - error handling
-- storing AI output
+- storing and versioning AI output
+- basic AI evaluation
+- API usage and cost tracking
 
 ### Done when
 
-A tender can have a stored AI-generated summary.
+A tender can have a stored, grounded English AI summary with version history,
+staleness detection, usage logging, and an initial evaluation checklist.
+
+Status: Implementation and initial live output evaluation complete on
+2026-06-12. Continue evaluating prompt changes against representative tenders.
 
 ---
 
@@ -625,7 +710,7 @@ For each tender:
 
 The AI must not claim full eligibility when the complete tender requirements
 are unavailable. It should clearly identify what must be checked after logging
-into Etimad or purchasing the conditions booklet.
+into Etimad or reviewing the conditions booklet.
 
 ### Learn only what is needed
 
@@ -641,7 +726,96 @@ The user can click “Find Relevant Tenders” and receive an AI-ranked shortlis
 
 ---
 
-## Milestone 10 — Chat With Tender Database
+## Milestone 10 — Tender Booklet Analysis
+
+### Goal
+
+Analyze the detailed Arabic conditions booklet for a shortlisted tender and
+turn it into a cited English qualification review.
+
+This is a deliberate post-discovery workflow. The app must never automatically
+download or analyze every booklet.
+
+### Flow
+
+1. Public-data matching identifies a promising tender.
+2. The user obtains the booklet through their authorized Etimad access.
+3. The user manually uploads the PDF to the tender record.
+4. The app extracts text locally and detects whether OCR is required.
+5. Repeated headers, footers, and standard boilerplate are separated from
+   tender-specific content.
+6. The app shows an estimated AI-analysis cost.
+7. The user explicitly starts analysis.
+8. Structured results are stored and reused without reanalyzing unchanged
+   documents.
+
+### Structured Output
+
+- executive English summary
+- detailed scope and deliverables
+- confirmed bidder eligibility requirements
+- required licenses, certificates, and documents
+- staffing and qualification requirements
+- submission requirements and evaluation criteria
+- guarantees, penalties, and contractual risks
+- local-content requirements
+- questions and unclear points
+- company-fit notes based on available profile data
+- page citations for every important conclusion
+
+### Grounding and Safety Rules
+
+- Preserve the original uploaded PDF and a hash of its contents.
+- Extract text locally before making any AI request.
+- Cite page numbers and source excerpts for important conclusions.
+- Clearly separate standard legal boilerplate from tender-specific terms.
+- Never infer that a company satisfies a requirement without supporting company
+  data.
+- Never guarantee eligibility, compliance, or winning probability.
+- Treat uploaded-document text as untrusted data, not instructions.
+- Mark low-confidence OCR or extraction results for human review.
+
+### Cost Controls
+
+- Analysis is manual and limited to shortlisted tenders.
+- Text extraction, cleanup, section detection, and keyword search run locally.
+- Send only relevant sections to AI where possible.
+- Analyze each unchanged booklet once and cache the structured results.
+- Show estimated cost before analysis and actual usage afterward.
+- Regenerate only when the document, model, prompt, or analysis schema changes.
+
+### Initial Evaluation
+
+Use the provided `MHRSD - Innovation Center (Ar).pdf` booklet as the first
+representative fixture. Verify that analysis can identify and cite:
+
+- project scope and deliverables
+- required licenses and certificates
+- team and language requirements
+- evaluation and submission requirements
+- guarantees and contractual risks
+- tender-specific terms versus standard boilerplate
+
+### Learn only what is needed
+
+- secure file uploads
+- PDF text extraction
+- OCR fallback
+- content hashing and cached analysis
+- section-aware chunking
+- retrieval over document sections
+- page-level citations
+- long-document AI evaluation
+
+### Done when
+
+A user can manually upload one booklet, review the estimated cost, generate a
+stored English qualification analysis, and verify every important conclusion
+against cited booklet pages.
+
+---
+
+## Milestone 11 — Chat With Tender Database
 
 ### Goal
 
@@ -675,7 +849,7 @@ The AI can answer questions based only on retrieved tender records.
 
 ---
 
-## Milestone 11 — CSV Import
+## Milestone 12 — CSV Import
 
 ### Goal
 
@@ -705,7 +879,7 @@ You can upload a CSV and update the tender database.
 
 ---
 
-## Milestone 12 — Automated Monitoring and Notifications
+## Milestone 13 — Automated Monitoring and Notifications
 
 ### Goal
 
@@ -754,7 +928,7 @@ profiles, and surfaced through explainable notifications.
 
 ---
 
-## Milestone 13 — Weekly AI Tender Report
+## Milestone 14 — Weekly AI Tender Report
 
 ### Goal
 
@@ -790,7 +964,7 @@ The app can generate a useful weekly tender report from the database.
 
 ---
 
-## Milestone 14 — Product Styling and Experience Refinement
+## Milestone 15 — Product Styling and Experience Refinement
 
 ### Goal
 
@@ -1161,12 +1335,20 @@ Learn only when the milestone requires it.
 
 ## Learn during Milestone 10
 
+- PDF extraction and OCR
+- document chunking
+- content hashing and cached analysis
+- page citations
+- long-document grounding and evaluation
+
+## Learn during Milestone 11
+
 - RAG basics
 - retrieval
 - query interpretation
 - source-based answers
 
-## Learn during Milestones 11–12
+## Learn during Milestones 12–13
 
 - CSV import
 - API ingestion
@@ -1176,7 +1358,7 @@ Learn only when the milestone requires it.
 - notifications
 - logs and retries
 
-## Learn during Milestone 13
+## Learn during Milestone 14
 
 - report generation
 - AI synthesis

@@ -78,6 +78,18 @@ npm run dev
 
 Open `http://localhost:3000`.
 
+To enable manual AI summaries, add an OpenAI API key to `.env`:
+
+```bash
+OPENAI_API_KEY="your-api-key"
+OPENAI_SUMMARY_MODEL="gpt-5-mini"
+```
+
+The API key stays server-side. Summary generation is manual and never runs
+during tender import or enrichment. Each successful generation stores its
+structured output, model, prompt version, source timestamps, token usage, and
+estimated cost. API usage is billed separately from ChatGPT or Codex.
+
 The homepage redirects to `/tenders`, which displays up to 120 real tenders
 stored in the local database.
 
@@ -92,6 +104,15 @@ Ignored tenders are hidden from default browsing and remain accessible at
 Create or edit the local company profile at `/company`. Profile list fields
 accept comma-separated or one-item-per-line values and will power explainable
 tender matching in the next milestone.
+
+After creating a company profile, `/tenders/recommended` ranks non-ignored
+tenders with a deterministic relevance score and displays every reason and
+concern behind that score.
+
+Tender detail pages include a manual AI summary panel. Summaries use normalized
+stored data only, are validated before storage, preserve version history, and
+are marked stale after the tender or company profile changes. Review
+`AI_EVALS.md` before evaluating summaries across representative tenders.
 
 ## Useful Checks
 
@@ -108,3 +129,4 @@ npm run db:push
 - `ROADMAP.md`: product and implementation roadmap
 - `MILESTONE_0_ETIMAD_DATA.md`: Etimad data-access investigation
 - `LEARNING_NOTES.md`: concepts and decisions learned while building
+- `AI_EVALS.md`: manual and deterministic AI-summary evaluation checklist

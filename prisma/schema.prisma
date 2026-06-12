@@ -68,6 +68,7 @@ model Tender {
   detailSnapshot TenderDetailSnapshot?
   attachments    TenderAttachment[]
   decision       TenderDecision?
+  aiSummaries    TenderAiSummary[]
 
   @@index([agencyNameArabic])
   @@index([activityNameArabic])
@@ -137,4 +138,29 @@ model CompanyProfile {
   preferredOpportunityTypes String[] @default([])
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
+
+  aiSummaries TenderAiSummary[]
+}
+
+model TenderAiSummary {
+  id                            String   @id @default(cuid())
+  tenderId                      String
+  companyProfileId              String?
+  content                       Json
+  model                         String
+  promptVersion                 String
+  openaiResponseId              String?
+  inputTokens                   Int?
+  outputTokens                  Int?
+  totalTokens                   Int?
+  estimatedCostUsd              Decimal? @db.Decimal(12, 6)
+  sourceTenderUpdatedAt         DateTime
+  sourceCompanyProfileUpdatedAt DateTime?
+  generatedAt                   DateTime @default(now())
+
+  tender         Tender          @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  companyProfile CompanyProfile? @relation(fields: [companyProfileId], references: [id], onDelete: SetNull)
+
+  @@index([tenderId, generatedAt])
+  @@index([companyProfileId])
 }

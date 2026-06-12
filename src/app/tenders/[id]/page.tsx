@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { updateTenderNote } from "../actions";
 import { DecisionControls } from "../decision-controls";
+import { TenderSummaryPanel } from "./summary-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -58,13 +59,20 @@ export default async function TenderDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const tender = await prisma.tender.findUnique({
-    where: { id },
-    include: {
-      attachments: { orderBy: { nameArabic: "asc" } },
-      decision: true,
-    },
-  });
+  const [tender, companyProfile] = await Promise.all([
+    prisma.tender.findUnique({
+      where: { id },
+      include: {
+        attachments: { orderBy: { nameArabic: "asc" } },
+        decision: true,
+        aiSummaries: { orderBy: { generatedAt: "desc" }, take: 20 },
+      },
+    }),
+    prisma.companyProfile.findUnique({
+      where: { id: "primary" },
+      select: { id: true, updatedAt: true },
+    }),
+  ]);
 
   if (!tender) {
     notFound();
@@ -146,6 +154,13 @@ export default async function TenderDetailPage({
             <p className="mt-1 text-sm">{tender.detailEnrichmentError}</p>
           </section>
         )}
+
+        <TenderSummaryPanel
+          tenderId={tender.id}
+          tenderUpdatedAt={tender.updatedAt}
+          currentCompanyProfile={companyProfile}
+          summaries={tender.aiSummaries}
+        />
 
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
           <section className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6">

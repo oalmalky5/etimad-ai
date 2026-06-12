@@ -577,3 +577,169 @@ clean.
 
 Begin Milestone 6 by ranking tenders with an explainable, non-AI scoring
 function.
+
+## Session 10 - Explainable Rule-Based Tender Matching
+
+### Concepts Learned
+
+- **Deterministic scoring:** The same company profile and tender always produce
+  the same score without an AI API call.
+- **Explainable recommendations:** Every awarded point and every penalty
+  produces a visible reason or concern.
+- **Weighted signals:** Activity, matching terms, target entities, regions,
+  opportunity types, and deadline urgency contribute different point amounts.
+- **Negative signals:** Excluded keywords create a strong penalty, while passed
+  deadlines reduce relevance to zero.
+- **Urgency versus relevance:** A deadline can increase the priority of an
+  already relevant tender, but urgency alone cannot make an irrelevant tender
+  relevant.
+- **Missing-data honesty:** Unknown enriched fields become concerns rather than
+  assumed mismatches or matches.
+- **Language limitation:** Rule-based substring matching works only when profile
+  terms and tender text use compatible wording and language. AI matching later
+  can improve semantic and bilingual understanding.
+
+### Current Score Model
+
+```text
+Activity match                 +30
+Matched service/industry/term  +10 each, up to +30
+Target government entity      +15
+Preferred region              +10
+Preferred opportunity type     +5
+Relevant and closing in 30d   +10
+Relevant and closing in 7d     +5 plus urgency concern
+Excluded keyword              -60
+Passed deadline                score becomes 0
+```
+
+Scores are clamped between zero and one hundred. They represent relevance, not
+confirmed eligibility or winning probability.
+
+### Real-Data Proof
+
+A temporary Arabic matching profile ranked the 120-tender local dataset:
+
+```text
+Positive relevance candidates: 58
+Candidates scoring at least 40: 11
+Highest observed score: 65
+Zero-score tenders hidden from Recommended view
+```
+
+The Recommended page displayed every score, reason, concern, deadline, and
+decision control. The temporary profile was removed afterward.
+
+### Files
+
+- `src/lib/matching/score-tender.ts` contains the deterministic scoring
+  algorithm.
+- `src/lib/matching/score-tender.test.ts` verifies strong matches, excluded
+  terms, missing regions, and urgency behavior.
+- `src/app/tenders/recommended/page.tsx` ranks and explains relevant tenders.
+
+### You Should Be Able To Explain
+
+- Why rule-based matching should come before AI matching.
+- Why every score must have visible reasons and concerns.
+- Why deadline urgency cannot create relevance by itself.
+- Why missing detail data should produce uncertainty rather than assumptions.
+- Why rule-based matching has semantic and bilingual limitations.
+- Why relevance is different from eligibility.
+
+### Next Session
+
+Begin Milestone 7 by adding the first grounded AI feature: a stored tender
+summary generated only from available database fields.
+
+## Session 11 - Grounded AI Tender Summaries
+
+### Concepts Learned
+
+- **Grounded generation:** The model receives a deliberate serializer of
+  normalized tender and company-profile fields, not raw source payloads or
+  hidden data.
+- **Structured outputs:** OpenAI must return one strict JSON shape, which Zod
+  validates again before anything is stored.
+- **Server-side secrets:** `OPENAI_API_KEY` is read only inside server code and
+  is never exposed to the browser.
+- **Manual cost control:** Importing and enriching tenders never calls AI.
+  Generations happen only after a user clicks Summarize tender.
+- **Version history:** Every successful generation creates a new record instead
+  of overwriting the previous summary.
+- **Staleness:** A summary is stale when its source tender or company profile
+  changed after generation.
+- **AI evaluation:** Code can test output shape and obvious contract failures,
+  while people must still review factual accuracy and usefulness.
+- **Relevance versus eligibility:** Fit notes can explain relevance but must
+  never confirm eligibility or predict winning.
+
+### Summary Data Flow
+
+```text
+Manual Summarize tender action
+        ↓ load tender + optional company profile
+Grounded normalized-data serializer
+        ↓ OpenAI Responses API with strict JSON Schema
+Zod validation
+        ↓
+Append-only TenderAiSummary version
+        ↓
+Display latest version + freshness + usage metadata
+```
+
+### Cost Model
+
+The default model is configurable through `OPENAI_SUMMARY_MODEL` and currently
+defaults to `gpt-5-mini`. For that default, the app estimates cost from returned
+input and output token counts using standard pricing verified on 2026-06-12.
+Custom models still store token usage but do not show an estimate until their
+pricing is explicitly configured.
+
+### Files
+
+- `src/lib/ai/tender-summary-context.ts` selects the source data sent to AI.
+- `src/lib/ai/tender-summary-schema.ts` defines the structured output contract.
+- `src/lib/ai/generate-tender-summary.ts` calls and parses the Responses API.
+- `src/lib/ai/evaluate-tender-summary.ts` contains deterministic eval checks.
+- `src/app/tenders/[id]/summary-actions.ts` generates and stores versions.
+- `src/app/tenders/[id]/summary-panel.tsx` displays summaries and freshness.
+- `AI_EVALS.md` defines the initial human-review set and checklist.
+
+### You Should Be Able To Explain
+
+- Why raw source payloads are excluded from the first AI prompt.
+- Why the API key belongs only in server-side environment variables.
+- Why strict structured output still needs local validation.
+- Why summaries are appended instead of overwritten.
+- How staleness differs from a factually incorrect summary.
+- Why deterministic checks cannot replace human AI evaluation.
+- Why relevance does not prove eligibility.
+
+### Next Session
+
+Configure an OpenAI API key, generate the first real summaries manually, and
+evaluate them against `AI_EVALS.md` before beginning Milestone 8.
+
+## Product Discovery - Tender Conditions Booklet
+
+The attached `MHRSD - Innovation Center (Ar).pdf` demonstrated that an Etimad
+conditions booklet can contain the detailed scope, bidder documents, staffing
+requirements, evaluation rules, guarantees, penalties, deliverables, local
+content terms, and special contractual conditions that are absent from public
+tender-detail fields.
+
+This creates two distinct product layers:
+
+```text
+Public tender data
+  → automatic discovery, matching, notifications, and lightweight summaries
+
+Manually uploaded booklet for a shortlisted tender
+  → detailed cited qualification and requirements analysis
+```
+
+Booklet analysis should remain selective and manual. The app should extract and
+clean PDF text locally, show an estimated AI cost, analyze an unchanged booklet
+once, cache the result, and cite source pages. The analysis can improve
+eligibility review but must not guarantee eligibility or winning.

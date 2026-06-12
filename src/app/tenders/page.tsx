@@ -161,6 +161,12 @@ export default async function TendersPage({
           </div>
           <div className="flex items-center gap-4">
             <Link
+              href="/tenders/recommended"
+              className="text-sm font-semibold hover:text-[var(--accent)]"
+            >
+              Recommended
+            </Link>
+            <Link
               href="/company"
               className="text-sm font-semibold hover:text-[var(--accent)]"
             >

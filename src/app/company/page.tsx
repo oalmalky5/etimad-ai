@@ -72,10 +72,10 @@ export default async function CompanyProfilePage({
             ← Tender browser
           </Link>
           <Link
-            href="/tenders/saved"
+            href="/tenders/recommended"
             className="text-sm font-semibold hover:text-[var(--accent)]"
           >
-            Saved workspace
+            Recommended tenders
           </Link>
         </div>
       </header>
